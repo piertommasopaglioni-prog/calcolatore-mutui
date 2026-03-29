@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calcolatore Mutui Avanzato con Piano di Ammortamento</title>
+    <style>
+        /* --- STILI PER LO SCHERMO --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .calculator-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 600px;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+        h2, h3 {
+            text-align: center;
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .btn-print {
+            background-color: #27ae60;
+        }
+        .btn-print:hover {
+            background-color: #2ecc71;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4f8;
+            border-left: 5px solid #3498db;
+            border-radius: 5px;
+            display: none;
+        }
+        .hidden {
+            display: none;
+        }
+        .note {
+            font-size: 0.9em;
+            color: #555;
+            margin-top: 10px;
+        }
+        
+        /* Stili Tabella */
+        .table-container {
+            width: 100%;
+            max-width: 800px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+            font-size: 14px;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        /* --- STILI PER LA STAMPA (A4 Verticale) --- */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 15mm;
+            }
+            body {
+                background: white;
+                padding: 0;
+            }
+            .calculator-container, .table-container {
+                box-shadow: none;
+                margin: 0;
+                padding: 0;
+                max-width: 100%;
+            }
+            /* Nasconde i controlli e le note non necessarie in stampa */
+            .form-group, button, select, input, .note-stampa {
+                display: none !important;
+            }
+            #risultato {
+                border-left: none;
+                background-color: transparent;
+                padding: 0;
+                border-bottom: 2px solid #333;
+                border-radius: 0;
+                margin-bottom: 20px;
+            }
+            table {
+                page-break-inside: auto;
+            }
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+            th {
+                background-color: #f2f2f2 !important; /* Molte stampanti ignorano i colori di sfondo scuri */
+                color: #000 !important;
+            }
+            th, td {
+                font-size: 11px; /* Font più piccolo per stare comodamente in A4 */
+                padding: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="calculator-container">
+    <h2>Calcolatore Mutui</h2>
+    
+    <div class="form-group">
+        <label for="importo">Importo del Mutuo (€)</label>
+        <input type="number" id="importo" placeholder="es. 150000" required>
+    </div>
+
+    <div class="form-group">
+        <label for="durata">Durata (Anni)</label>
+        <input type="number" id="durata" placeholder="es. 20" required>
+    </div>
+
+    <div class="form-group">
+        <label for="tasso">Tasso di Interesse Iniziale (%)</label>
+        <input type="number" id="tasso" step="0.01" placeholder="es. 3.5" required>
+    </div>
+
+    <div class="form-group">
+        <label for="tipoTasso">Tipologia di Tasso</label>
+        <select id="tipoTasso" onchange="gestisciCampi()">
+            <option value="fisso">Tasso Fisso</option>
+            <option value="variabile">Tasso Variabile</option>
+            <option value="misto">Tasso Misto</option>
+            <option value="trigger">Tasso Variabile con Rata Costante (Trigger Rate)</option>
+        </select>
+    </div>
+
+    <div class="form-group hidden" id="campoMisto">
+        <label for="anniFissi">Anni di Tasso Fisso Iniziale</label>
+        <input type="number" id="anniFissi" placeholder="es. 5">
+    </div>
+
+    <div class="form-group hidden" id="campoTrigger">
+        <label for="tassoTrigger">Trigger Rate / Tasso di Soglia (%)</label>
+        <input type="number" id="tassoTrigger" step="0.01" placeholder="es. 5.0">
+        <div class="note">Se il tasso supera questa soglia, si attiva l'allungamento o l'aumento.</div>
+    </div>
+
+    <button onclick="calcolaMutuo()">Calcola Rata e Piano</button>
+
+    <div class="result" id="risultato">
+        <h3>Riepilogo Mutuo</h3>
+        <p>Rata Mensile (Iniziale): <strong id="rataMensile">0.00 €</strong></p>
+        <p>Capitale Richiesto: <strong id="capitaleRichiesto">0.00 €</strong></p>
+        <p>Totale Interessi Stimati: <strong id="totaleInteressi">0.00 €</strong></p>
+        <div id="dettagliAggiuntivi" class="note"></div>
+    </div>
+</div>
+
+<div class="table-container hidden" id="sezioneTabella">
+    <button class="btn-print" onclick="window.print()">🖨️ Stampa Piano in A4</button>
+    <p class="note note-stampa">Il piano generato si basa sul tasso iniziale. In caso di tasso variabile/misto, le rate future subiranno variazioni.</p>
+    
+    <h3>Piano di Ammortamento</h3>
+    <table id="tabellaAmmortamento">
+        <thead>
+            <tr>
+                <th>Mese</th>
+                <th>Rata (€)</th>
+                <th>Quota Interessi (€)</th>
+                <th>Quota Capitale (€)</th>
+                <th>Capitale Residuo (€)</th>
+            </tr>
+        </thead>
+        <tbody>
+            </tbody>
+    </table>
+</div>
+
+<script>
+    function gestisciCampi() {
+        const tipoTasso = document.getElementById('tipoTasso').value;
+        document.getElementById('campoMisto').classList.add('hidden');
+        document.getElementById('campoTrigger').classList.add('hidden');
+
+        if (tipoTasso === 'misto') {
+            document.getElementById('campoMisto').classList.remove('hidden');
+        } else if (tipoTasso === 'trigger') {
+            document.getElementById('campoTrigger').classList.remove('hidden');
+        }
+    }
+
+    function calcolaMutuo() {
+        const importo = parseFloat(document.getElementById('importo').value);
+        const durataAnni = parseInt(document.getElementById('durata').value);
+        const tassoAnnuale = parseFloat(document.getElementById('tasso').value);
+        const tipoTasso = document.getElementById('tipoTasso').value;
+
+        if (!importo || !durataAnni || !tassoAnnuale) {
+            alert("Per favore, compila tutti i campi principali.");
+            return;
+        }
+
+        const numeroRate = durataAnni * 12;
+        const tassoMensile = (tassoAnnuale / 100) / 12;
+
+        // Formula rata costante (Ammortamento Francese)
+        const rata = importo * (tassoMensile * Math.pow(1 + tassoMensile, numeroRate)) / (Math.pow(1 + tassoMensile, numeroRate) - 1);
+        const totaleInteressi = (rata * numeroRate) - importo;
+
+        // Popola i dati di riepilogo
+        document.getElementById('rataMensile').innerText = rata.toFixed(2) + " €";
+        document.getElementById('capitaleRichiesto').innerText = importo.toFixed(2) + " €";
+        document.getElementById('totaleInteressi').innerText = totaleInteressi.toFixed(2) + " €";
+        
+        // Dettagli in base alla tipologia
+        let dettagli = "";
+        switch (tipoTasso) {
+            case 'fisso':
+                dettagli = `Il tasso fisso garantisce che questa rata e il piano di ammortamento sottostante rimangano invariati per tutti i ${durataAnni} anni.`;
+                break;
+            case 'variabile':
+                dettagli = `Questa è la rata <b>iniziale</b>. Il piano sottostante è una proiezione basata sul tasso attuale: se i tassi salgono o scendono, le rate future cambieranno.`;
+                break;
+            case 'misto':
+                const anniFissi = document.getElementById('anniFissi').value;
+                if(!anniFissi) { alert("Inserisci gli anni fissi."); return; }
+                dettagli = `Rata garantita per i primi <b>${anniFissi} anni</b>. Il piano completo qui sotto è una proiezione teorica che presume il tasso rimanga invariato.`;
+                break;
+            case 'trigger':
+                const tassoTrigger = document.getElementById('tassoTrigger').value;
+                dettagli = `Rata bloccata a <b>${rata.toFixed(2)} €</b>. Se i tassi superano la soglia del <b>${tassoTrigger || '?'}%</b>, la durata si allungherà o gli interessi non coperti verranno rimandati a fine mutuo.`;
+                break;
+        }
+
+        document.getElementById('dettagliAggiuntivi').innerHTML = dettagli;
+        document.getElementById('risultato').style.display = 'block';
+
+        // Generazione Tabella Ammortamento
+        generaPianoAmmortamento(importo, tassoMensile, rata, numeroRate);
+        document.getElementById('sezioneTabella').classList.remove('hidden');
+    }
+
+    function generaPianoAmmortamento(capitale, tassoMensile, rataMensile, mesi) {
+        const tbody = document.querySelector('#tabellaAmmortamento tbody');
+        tbody.innerHTML = ''; // Pulisce la tabella precedente
+        let residuo = capitale;
+
+        for (let mese = 1; mese <= mesi; mese++) {
+            let quotaInteressi = residuo * tassoMensile;
+            let quotaCapitale = rataMensile - quotaInteressi;
+
+            // Arrotondamento finale per l'ultima rata per azzerare il capitale
+            if (mese === mesi) {
+                quotaCapitale = residuo;
+                rataMensile = quotaCapitale + quotaInteressi;
+                residuo = 0;
+            } else {
+                residuo -= quotaCapitale;
+            }
+
+            // Crea la riga
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${mese}</td>
+                <td>${rataMensile.toFixed(2)}</td>
+                <td>${quotaInteressi.toFixed(2)}</td>
+                <td>${quotaCapitale.toFixed(2)}</td>
+                <td>${Math.abs(residuo).toFixed(2)}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+    }
+</script>
+
+</body>
+</html>
